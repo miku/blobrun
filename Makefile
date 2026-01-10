@@ -48,7 +48,7 @@ update-all-deps:
 .PHONY: deb
 deb: $(TARGETS)
 	GOARCH=amd64 SEMVER=$(VERSION) nfpm package --config nfpm.yaml -p deb
-	GOARCH=arm64 SEMVER=$(VERSION) nfpm package --config nfpm.yaml -p deb
+	# GOARCH=arm64 SEMVER=$(VERSION) nfpm package --config nfpm.yaml -p deb
 
 .PHONY: update-version
 update-version:
