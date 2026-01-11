@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/handlers"
@@ -581,6 +582,7 @@ func runServer() error {
 		if err := urlMap.EnsureDB(); err != nil {
 			return fmt.Errorf("cannot initialize URL map: %w", err)
 		}
+		defer urlMap.Close()
 		svc.URLMap = &urlMap
 	}
 
@@ -605,7 +607,30 @@ func runServer() error {
 		ReadTimeout:  cfg.Server.Timeout,
 	}
 
-	slog.Info("server ready", "addr", srv.Addr, "spool", cfg.SpoolDir)
-	log.Fatal(srv.ListenAndServe())
+	// Create context that cancels on SIGINT/SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Start server in goroutine
+	go func() {
+		slog.Info("server ready", "addr", srv.Addr, "spool", cfg.SpoolDir)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server listen error", "err", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-ctx.Done()
+	slog.Info("shutdown signal received, stopping server")
+
+	// Give outstanding requests 30 seconds to complete
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("server shutdown failed: %w", err)
+	}
+
+	slog.Info("server stopped gracefully")
 	return nil
 }
