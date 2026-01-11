@@ -1,6 +1,6 @@
 # BLOBPROC makefile
 #
-# requires: nfpm, pandoc, go
+# requires: go, pandoc, nfpm: https://nfpm.goreleaser.com/
 
 SHELL := /bin/bash
 TARGETS := blobproc blobfetch docs/blobproc.1
