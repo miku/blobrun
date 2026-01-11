@@ -80,7 +80,7 @@ func (w *WalkFast) worker(wctx context.Context, workerName string, queue chan Pa
 						logger.Debug("keeping file in spool", "path", path)
 					}
 				}()
-				ctx, cancel := context.WithTimeout(context.Background(), w.Timeout)
+				ctx, cancel := context.WithTimeout(wctx, w.Timeout)
 				defer cancel()
 				// Fulltext and thumbail via local command line tools
 				// --------------------------------------------------
