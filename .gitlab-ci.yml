@@ -1,0 +1,58 @@
+stages:
+  - build
+  - upload
+
+variables:
+  # XXX: golang@sha256:b3dde9df96709c60c299573912ee80d5e91dc28a8021015e620276a017ec86e7
+  GO_VERSION: 1.25.5-trixie
+  DEBIAN_FRONTEND: noninteractive
+
+build:deb:
+  stage: build
+  image: golang:${GO_VERSION}
+  only:
+    - tags
+  except:
+    - branches
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  before_script:
+    # Install dependencies
+    - apt-get update && apt-get install -y pandoc wget
+    # Install nfpm
+    - echo "deb [trusted=yes] https://repo.goreleaser.com/apt/ /" | tee /etc/apt/sources.list.d/goreleaser.list
+    - apt-get update && apt-get install -y nfpm
+    # Extract version from tag (v1.2.3 -> 1.2.3)
+    - export VERSION=${CI_COMMIT_TAG#v}
+    - echo "building blobproc version $VERSION"
+    # Update VERSION in Makefile
+    - sed -i "s/^VERSION := .*/VERSION := $VERSION/" Makefile
+  script:
+    - make all
+    - make deb
+  artifacts:
+    paths:
+      - "*.deb"
+    expire_in: 1 week
+
+upload:nexus:
+  stage: upload
+  image: curlimages/curl:8.18.0
+  only:
+    - tags
+  except:
+    - branches
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  dependencies:
+    - build:deb
+  script:
+    - export VERSION=${CI_COMMIT_TAG#v}
+    - export DEB_FILE=$(ls *.deb)
+    - echo "Uploading $DEB_FILE to Nexus..."
+    - |
+      curl -v --user "$NEXUS_ADS_GLCI_PUBLISHER_USERNAME:$NEXUS_ADS_GLCI_PUBLISHER_PASSWORD" \
+        --upload-file "${DEB_FILE}" \
+        "${NEXUS_URL}/repository/raw-internal/blobproc/${VERSION}/${DEB_FILE}"
+  needs:
+    - build:deb
