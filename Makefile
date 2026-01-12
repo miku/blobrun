@@ -6,7 +6,7 @@ SHELL := /bin/bash
 TARGETS := blobproc blobfetch docs/blobproc.1
 PKGNAME := blobproc
 MAKEFLAGS := --jobs=$(shell nproc)
-VERSION := 0.3.33 # change this and then run "make update-version"
+VERSION := 0.3.34 # change this and then run "make update-version"
 
 .PHONY: all
 all: $(TARGETS)
